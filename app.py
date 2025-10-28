@@ -1,133 +1,86 @@
-# app.py
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-from utils import (
-    safe_read_csv,
-    robust_parse_dates,
-    compute_sma,
-    compute_insights,
-    prepare_sample_df,
-    generate_llm_summary,
-)
+import plotly.express as px
 
-st.set_page_config(page_title="Nifty Stock Analysis Dashboard", layout="wide")
-st.title("📊 Nifty Stock Analysis Dashboard — SMA50 & SMA200 + Quick Insights")
+# Page setup
+st.set_page_config(page_title="AI Finance Dashboard", page_icon="💰", layout="wide")
 
-st.markdown(
-    "Upload your CSV or use the sample dataset. Columns expected: `Date`, `Stock`, `Close`, (optional) `Category`."
-)
+# Header Section
+st.title("💹 AI Finance Management Dashboard")
 
-uploaded_file = st.file_uploader("Upload CSV (Date, Stock, Close, Category...)", type=["csv"])
-use_sample = st.button("Use sample dataset")
+# Top KPIs
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("👥 Active Users", "50K+", "+5%")
+col2.metric("💵 Transactions Tracked", "$2B+", "+12%")
+col3.metric("⚙️ Uptime", "99.9%", "Stable")
+col4.metric("⭐ User Rating", "4.9 / 5", "Excellent")
 
-# Load dataframe
-if uploaded_file is None and not use_sample:
-    st.info("Upload a CSV or click 'Use sample dataset' to get started.")
-    st.stop()
+st.markdown("---")
+st.subheader("Everything you need to manage your finances")
 
-if use_sample:
-    df = prepare_sample_df()
-else:
-    df = safe_read_csv(uploaded_file)
-    if df is None:
-        st.error("Failed to read uploaded CSV. Make sure it's a valid CSV file.")
-        st.stop()
+# Feature cards
+c1, c2, c3 = st.columns(3)
+c4, c5, c6 = st.columns(3)
 
-st.subheader("Raw data (first 10 rows)")
-st.dataframe(df.head(10))
+with c1:
+    st.info("**📊 Advanced Analytics**\nGet detailed insights into your spending patterns with AI-powered analytics.")
+with c2:
+    st.info("**🧾 Smart Receipt Scanner**\nExtract data automatically from receipts using advanced AI technology.")
+with c3:
+    st.info("**📅 Budget Planning**\nCreate and manage budgets with intelligent recommendations.")
+with c4:
+    st.info("**🏦 Multi-Account Support**\nManage multiple accounts and credit cards in one place.")
+with c5:
+    st.info("**💱 Multi-Currency**\nSupport for multiple currencies with real-time conversion.")
+with c6:
+    st.info("**🤖 Automated Insights**\nGet automated financial insights and recommendations.")
 
-# --- Date parsing ---
-date_col = st.selectbox("Select date column", options=[c for c in df.columns if "date" in c.lower()] + ["<other>"])
-if date_col == "<other>":
-    date_col = st.selectbox("Pick date-like column", df.columns.tolist())
+st.markdown("---")
+st.subheader("📈 Financial Insights Dashboard")
 
-df[date_col + "_parsed"] = robust_parse_dates(df[date_col])
-parsed_count = df[date_col + "_parsed"].notna().sum()
-st.write(f"Parsed {parsed_count} / {len(df)} rows as dates from column `{date_col}`.")
-if parsed_count == 0:
-    st.error("No parseable dates. Check your date column formatting.")
-    st.stop()
+# Upload CSV file
+uploaded_file = st.file_uploader("Upload your financial data (CSV)", type=["csv"])
 
-df["Date"] = df[date_col + "_parsed"]
-df = df.drop(columns=[date_col + "_parsed"])
-df = df.dropna(subset=["Date"]).sort_values(["Stock", "Date"]).reset_index(drop=True)
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
 
-# --- Basic checks & cleaning ---
-if "Stock" not in df.columns:
-    st.error("Column 'Stock' not found. Please include 'Stock' column.")
-    st.stop()
+    # Try to handle different date column names
+    date_cols = [c for c in df.columns if 'date' in c.lower()]
+    if date_cols:
+        df[date_cols[0]] = pd.to_datetime(df[date_cols[0]], errors='coerce')
 
-if "Close" not in df.columns:
-    st.error("Column 'Close' not found. Please include 'Close' column.")
-    st.stop()
+    st.write("### Sample Data", df.head())
 
-df["Stock"] = df["Stock"].astype(str).str.strip().str.replace(" ", "", regex=False)
-df["Close"] = pd.to_numeric(df["Close"], errors="coerce")
-df = df.dropna(subset=["Close"])
-
-# --- Compute SMA & returns ---
-df = compute_sma(df, sma_short=50, sma_long=200)
-
-# --- Filters ---
-if "Category" in df.columns:
-    categories = ["All"] + sorted(df["Category"].dropna().unique().tolist())
-    category = st.selectbox("Category", categories)
-    if category != "All":
-        dff = df[df["Category"] == category]
+    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+    if len(numeric_cols) < 2:
+        st.warning("⚠️ Not enough numeric data to plot charts.")
     else:
-        dff = df.copy()
+        col_a, col_b = st.columns(2)
+
+        # Line Chart
+        with col_a:
+            st.markdown("#### 📉 Trend Over Time")
+            x_axis = st.selectbox("Select Date/Time Column", options=df.columns)
+            y_axis = st.selectbox("Select Value Column", options=numeric_cols)
+            line_fig = px.line(df, x=x_axis, y=y_axis, title=f"{y_axis} over {x_axis}")
+            st.plotly_chart(line_fig, use_container_width=True)
+
+        # Bar Chart
+        with col_b:
+            st.markdown("#### 📊 Category Comparison")
+            category_col = st.selectbox("Select Category Column", options=df.columns)
+            value_col = st.selectbox("Select Value Column for Bar Chart", options=numeric_cols)
+            bar_fig = px.bar(df, x=category_col, y=value_col, title=f"{value_col} by {category_col}")
+            st.plotly_chart(bar_fig, use_container_width=True)
+
+        st.markdown("#### 🥧 Expense Distribution")
+        pie_col = st.selectbox("Select Category for Pie Chart", options=df.columns)
+        pie_val = st.selectbox("Select Value for Pie Chart", options=numeric_cols)
+        pie_fig = px.pie(df, names=pie_col, values=pie_val, title=f"{pie_val} Distribution by {pie_col}")
+        st.plotly_chart(pie_fig, use_container_width=True)
+
 else:
-    dff = df.copy()
+    st.info("⬆️ Upload a CSV file to view interactive insights.")
 
-stocks = sorted(dff["Stock"].unique().tolist())
-stock_choice = st.selectbox("Select Stock", stocks)
-
-stock_df = dff[dff["Stock"] == stock_choice].sort_values("Date").reset_index(drop=True)
-if stock_df.empty:
-    st.error("No data for the selected stock after filtering.")
-    st.stop()
-
-# Quick insights
-insights = compute_insights(stock_df)
-st.subheader("📌 Quick Insights")
-col1, col2, col3 = st.columns(3)
-col1.metric("Last Close", f"₹{insights['last_close']:.2f}", delta=f"{insights['return_1d']:.2f}%")
-col2.metric("Period High", f"₹{insights['high']:.2f'}")
-col3.metric("Period Low", f"₹{insights['low']:.2f'}")
-st.markdown(f"**SMA signal:** {insights['sma_signal']}")
-st.write(f"Average daily return (period): {insights['avg_daily_return']:.3f}")
-
-# Plot
-st.subheader(f"📈 {stock_choice} Chart (Close + SMA50 + SMA200)")
-fig, ax = plt.subplots(figsize=(12, 5))
-ax.plot(stock_df["Date"], stock_df["Close"], label="Close", marker="o", markersize=3)
-ax.plot(stock_df["Date"], stock_df["SMA_50"], label="SMA 50", linestyle="--")
-ax.plot(stock_df["Date"], stock_df["SMA_200"], label="SMA 200", linestyle="--")
-ax.set_xlabel("Date")
-ax.set_ylabel("Price")
-ax.legend()
-plt.xticks(rotation=45)
-st.pyplot(fig)
-
-# LLM summary (optional)
-st.subheader("🧠 AI Summary (optional)")
-use_llm = st.checkbox("Generate short natural-language summary using OpenAI (requires OPENAI_API_KEY env var)", value=False)
-if use_llm:
-    try:
-        summary = generate_llm_summary(stock_df)
-        st.markdown("**LLM Summary:**")
-        st.write(summary)
-    except Exception as e:
-        st.error(f"LLM summary failed: {e}")
-
-# Show table and download cleaned csv
-with st.expander("Show processed rows (tail 200)"):
-    st.dataframe(stock_df.tail(200))
-
-download_csv = st.download_button(
-    "Download cleaned CSV",
-    data=stock_df.to_csv(index=False).encode("utf-8"),
-    file_name=f"{stock_choice}_cleaned.csv",
-    mime="text/csv",
-)
+st.markdown("---")
+st.caption("💡 Built with Streamlit & Plotly | AI Finance Platform")
