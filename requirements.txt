@@ -1,0 +1,6 @@
+streamlit>=1.20
+pandas>=1.5
+matplotlib>=3.5
+numpy>=1.23
+# Optional for LLM features:
+openai>=1.0
