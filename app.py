@@ -4,125 +4,114 @@ import plotly.express as px
 from PIL import Image
 import pytesseract
 import os
-import io
 import re
+import io
+
+# 🧠 Optional: Use EasyOCR if Tesseract is missing
+try:
+    import easyocr
+    EASY_OCR_AVAILABLE = True
+except ImportError:
+    EASY_OCR_AVAILABLE = False
 
 # 🪟 WINDOWS CONFIGURATION FOR PYTESSERACT
-if os.name == "nt":  # 'nt' = Windows
+if os.name == "nt":  # Windows system
     pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-# ------------------------- #
-# 📊 Streamlit Page Setup
-# ------------------------- #
-st.set_page_config(page_title="AI Finance Manager", layout="wide")
-st.title("💰 Manage Your Finances Using AI")
-st.markdown("### Analyze your spending, visualize your data, and scan receipts smartly using AI 🧠")
+# ---------------------- Streamlit App Title ----------------------
+st.set_page_config(page_title="AI Smart Finance Manager", layout="wide")
+st.title("💰 Manage Your Finance with AI")
+st.write("📸 Upload receipts or enter transactions to analyze your spending smartly.")
 
-# ------------------------- #
-# 📁 Upload CSV Section
-# ------------------------- #
-st.sidebar.header("📂 Upload your financial data")
-uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
+# ---------------------- Data Upload Section ----------------------
+uploaded_files = st.file_uploader("📤 Upload your receipts or CSV files", accept_multiple_files=True)
 
-if uploaded_file is not None:
+data = []
+
+def extract_text_from_image(image):
+    """Extracts text using Tesseract or EasyOCR fallback."""
+    text = ""
     try:
-        df = pd.read_csv(uploaded_file)
-        st.success("✅ File uploaded successfully!")
-
-        # Clean up data
-        df.columns = df.columns.str.strip()
-        numeric_cols = df.select_dtypes(include='number').columns.tolist()
-        st.write("### Sample Data Preview")
-        st.dataframe(df.head())
-
-        if len(numeric_cols) < 1:
-            st.warning("⚠️ Not enough numeric data to plot charts.")
-        else:
-            # Dropdown for numeric column
-            col_to_analyze = st.selectbox("Select numeric column for analysis", numeric_cols)
-
-            # ------------------------- #
-            # 📈 Bar Chart
-            # ------------------------- #
-            st.subheader("📊 Expense Bar Chart")
-            fig_bar = px.bar(df, x=df.columns[0], y=col_to_analyze, title="Expenses by Category")
-            st.plotly_chart(fig_bar, use_container_width=True)
-
-            # ------------------------- #
-            # 📉 Line Chart
-            # ------------------------- #
-            st.subheader("📈 Expense Trend (Line Chart)")
-            fig_line = px.line(df, x=df.columns[0], y=col_to_analyze, title="Expense Trend Over Time")
-            st.plotly_chart(fig_line, use_container_width=True)
-
-            # ------------------------- #
-            # 🥧 Pie Chart
-            # ------------------------- #
-            st.subheader("🥧 Expense Distribution")
-            if len(df.columns) >= 2:
-                fig_pie = px.pie(df, names=df.columns[0], values=col_to_analyze, title="Category-wise Expense Share")
-                st.plotly_chart(fig_pie, use_container_width=True)
-
-            # ------------------------- #
-            # 📈 Quick Insights
-            # ------------------------- #
-            st.subheader("💡 Quick Insights")
-            st.write(f"**Total Spending:** ₹{df[col_to_analyze].sum():,.2f}")
-            st.write(f"**Average Spending:** ₹{df[col_to_analyze].mean():,.2f}")
-            st.write(f"**Maximum Expense:** ₹{df[col_to_analyze].max():,.2f}")
-            st.write(f"**Minimum Expense:** ₹{df[col_to_analyze].min():,.2f}")
-
-    except Exception as e:
-        st.error(f"❌ Error reading file: {e}")
-
-else:
-    st.info("⬆️ Upload your financial dataset to begin analysis")
-
-# ------------------------- #
-# 🧾 Smart Receipt Scanner
-# ------------------------- #
-st.markdown("---")
-st.header("🧾 Smart Receipt Scanner (OCR)")
-
-uploaded_receipt = st.file_uploader("Upload your receipt image", type=["png", "jpg", "jpeg"])
-
-if uploaded_receipt is not None:
-    # Display uploaded image
-    st.image(uploaded_receipt, caption="Uploaded Receipt", use_container_width=True)
-
-    try:
-        image = Image.open(uploaded_receipt)
         text = pytesseract.image_to_string(image)
-
-        st.subheader("📜 Extracted Text:")
-        st.text(text)
-
-        # ------------------------- #
-        # 🧠 Simple AI Extraction Logic
-        # ------------------------- #
-        amount_match = re.search(r'₹\s?([\d,]+\.?\d*)', text)
-        date_match = re.search(r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})', text)
-        category = None
-
-        if "fuel" in text.lower() or "petrol" in text.lower():
-            category = "Fuel"
-        elif "uber" in text.lower() or "ola" in text.lower():
-            category = "Transport"
-        elif "pizza" in text.lower() or "restaurant" in text.lower() or "food" in text.lower():
-            category = "Food"
-        elif "electric" in text.lower() or "power" in text.lower() or "bill" in text.lower():
-            category = "Utilities"
-        elif "hotel" in text.lower():
-            category = "Travel"
-        elif "amazon" in text.lower() or "shopping" in text.lower():
-            category = "Shopping"
+    except pytesseract.TesseractNotFoundError:
+        if EASY_OCR_AVAILABLE:
+            st.warning("⚠️ Tesseract not found, switching to EasyOCR...")
+            reader = easyocr.Reader(['en'])
+            result = reader.readtext(image)
+            text = " ".join([res[1] for res in result])
         else:
-            category = "Other"
+            st.error("❌ Neither Tesseract nor EasyOCR is available. Please install one.")
+    return text
 
-        st.markdown("### 🧾 Extracted Receipt Insights")
-        st.write(f"**Detected Date:** {date_match.group(1) if date_match else 'N/A'}")
-        st.write(f"**Detected Amount:** ₹{amount_match.group(1) if amount_match else 'N/A'}")
-        st.write(f"**Predicted Category:** {category}")
 
-    except Exception as e:
-        st.error(f"❌ Error reading receipt: {e}")
+def parse_receipt_text(text):
+    """Extract basic fields like amount, date, and category from the receipt."""
+    amount_pattern = r'Rs\.?\s?(\d+(?:\.\d{1,2})?)'
+    date_pattern = r'(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})'
+    category_keywords = {
+        "food": ["restaurant", "cafe", "meal", "food"],
+        "travel": ["uber", "ola", "train", "flight", "bus"],
+        "shopping": ["mall", "store", "amazon", "flipkart"],
+        "groceries": ["grocery", "supermarket", "mart"],
+        "entertainment": ["movie", "cinema", "theatre"]
+    }
+
+    # Extract amount and date
+    amount = re.findall(amount_pattern, text)
+    date = re.findall(date_pattern, text)
+    category = "Other"
+
+    for cat, keywords in category_keywords.items():
+        if any(word.lower() in text.lower() for word in keywords):
+            category = cat.capitalize()
+            break
+
+    return {
+        "Amount": float(amount[-1]) if amount else 0.0,
+        "Date": date[-1] if date else "Unknown",
+        "Category": category
+    }
+
+# ---------------------- File Processing ----------------------
+if uploaded_files:
+    for file in uploaded_files:
+        if file.type.startswith("image/"):
+            image = Image.open(file)
+            st.image(image, caption=f"🧾 {file.name}", use_container_width=True)
+            text = extract_text_from_image(image)
+            if text:
+                receipt_data = parse_receipt_text(text)
+                data.append(receipt_data)
+        elif file.name.endswith(".csv"):
+            df = pd.read_csv(file)
+            data.extend(df.to_dict(orient="records"))
+
+# ---------------------- Manual Entry ----------------------
+st.subheader("✍️ Add Transaction Manually")
+with st.form("manual_entry"):
+    date = st.date_input("Date")
+    category = st.selectbox("Category", ["Food", "Travel", "Shopping", "Groceries", "Entertainment", "Other"])
+    amount = st.number_input("Amount (₹)", min_value=0.0, format="%.2f")
+    add_btn = st.form_submit_button("Add Entry")
+    if add_btn:
+        data.append({"Date": str(date), "Category": category, "Amount": amount})
+        st.success("✅ Transaction added successfully!")
+
+# ---------------------- Display and Charts ----------------------
+if data:
+    df = pd.DataFrame(data)
+    st.subheader("📊 Transaction Summary")
+    st.dataframe(df, use_container_width=True)
+
+    # Expense Summary by Category
+    cat_summary = df.groupby("Category")["Amount"].sum().reset_index()
+    fig = px.pie(cat_summary, values="Amount", names="Category", title="💸 Expense Distribution by Category")
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Expense Trend Over Time
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    time_summary = df.groupby("Date")["Amount"].sum().reset_index()
+    fig2 = px.line(time_summary, x="Date", y="Amount", title="📆 Spending Over Time")
+    st.plotly_chart(fig2, use_container_width=True)
+else:
+    st.info("📂 Upload receipts or add entries to get started.")
