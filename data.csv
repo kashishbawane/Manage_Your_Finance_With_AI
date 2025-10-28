@@ -1,11 +1,30 @@
-Date,Stock,Close,Category
-2025-10-01,RELIANCE,2580.5,NIFTY50
-2025-10-02,RELIANCE,2605.2,NIFTY50
-2025-10-03,RELIANCE,2590.0,NIFTY50
-2025-10-04,RELIANCE,2610.0,NIFTY50
-2025-10-05,RELIANCE,2625.5,NIFTY50
-2025-10-01,TCS,3500.0,NIFTY50
-2025-10-02,TCS,3490.5,NIFTY50
-2025-10-03,TCS,3510.0,NIFTY50
-2025-10-04,TCS,3520.0,NIFTY50
-2025-10-05,TCS,3535.0,NIFTY50
+Date,Account,Category,Description,Amount,Currency,Type
+2025-01-03,Savings,Salary,Monthly salary credited,65000,INR,Income
+2025-01-04,Credit Card,Food,Swiggy Lunch,450,INR,Expense
+2025-01-05,Credit Card,Entertainment,Netflix Subscription,499,INR,Expense
+2025-01-06,Savings,Investment,Mutual Fund SIP,2000,INR,Expense
+2025-01-07,Wallet,Transport,Ola Ride,220,INR,Expense
+2025-01-08,Savings,Shopping,Amazon Order,1300,INR,Expense
+2025-01-09,Credit Card,Utilities,Electricity Bill,950,INR,Expense
+2025-01-10,Savings,Freelance,Freelance Project Payment,8500,INR,Income
+2025-01-11,Wallet,Groceries,BigBasket Groceries,2300,INR,Expense
+2025-01-12,Savings,Health,Pharmacy Purchase,400,INR,Expense
+2025-01-13,Credit Card,Travel,Train Ticket Booking,700,INR,Expense
+2025-01-14,Savings,Investment,Stock Dividend,1500,INR,Income
+2025-01-15,Wallet,Food,Café Coffee Day,280,INR,Expense
+2025-01-16,Credit Card,Shopping,Myntra Order,2200,INR,Expense
+2025-01-17,Savings,Investment,Gold ETF,3000,INR,Expense
+2025-01-18,Savings,Salary,Monthly salary credited,65000,INR,Income
+2025-01-19,Credit Card,Utilities,Mobile Recharge,499,INR,Expense
+2025-01-20,Wallet,Groceries,D-Mart Purchase,2100,INR,Expense
+2025-01-21,Savings,Entertainment,Spotify Premium,149,INR,Expense
+2025-01-22,Credit Card,Shopping,Flipkart Order,2900,INR,Expense
+2025-01-23,Savings,Freelance,Website Design Payment,12500,INR,Income
+2025-01-24,Wallet,Transport,Uber Ride,180,INR,Expense
+2025-01-25,Credit Card,Health,Doctor Consultation,900,INR,Expense
+2025-01-26,Savings,Investment,Mutual Fund SIP,2000,INR,Expense
+2025-01-27,Wallet,Food,Pizza Hut Dinner,780,INR,Expense
+2025-01-28,Credit Card,Utilities,Internet Bill,999,INR,Expense
+2025-01-29,Savings,Entertainment,BookMyShow Tickets,650,INR,Expense
+2025-01-30,Savings,Salary,Monthly salary credited,65000,INR,Income
+2025-01-31,Savings,Investment,Fixed Deposit,5000,INR,Expense
