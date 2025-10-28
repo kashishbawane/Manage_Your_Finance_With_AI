@@ -2,85 +2,142 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Page setup
-st.set_page_config(page_title="AI Finance Dashboard", page_icon="💰", layout="wide")
+# -------------------------------
+# APP CONFIGURATION
+# -------------------------------
+st.set_page_config(page_title="AI Finance Manager Dashboard", layout="wide")
+st.title("💰 Manage Your Finances with AI")
+st.markdown("Get powerful insights into your income, expenses, and spending behavior.")
 
-# Header Section
-st.title("💹 AI Finance Management Dashboard")
-
-# Top KPIs
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("👥 Active Users", "50K+", "+5%")
-col2.metric("💵 Transactions Tracked", "$2B+", "+12%")
-col3.metric("⚙️ Uptime", "99.9%", "Stable")
-col4.metric("⭐ User Rating", "4.9 / 5", "Excellent")
-
-st.markdown("---")
-st.subheader("Everything you need to manage your finances")
-
-# Feature cards
-c1, c2, c3 = st.columns(3)
-c4, c5, c6 = st.columns(3)
-
-with c1:
-    st.info("**📊 Advanced Analytics**\nGet detailed insights into your spending patterns with AI-powered analytics.")
-with c2:
-    st.info("**🧾 Smart Receipt Scanner**\nExtract data automatically from receipts using advanced AI technology.")
-with c3:
-    st.info("**📅 Budget Planning**\nCreate and manage budgets with intelligent recommendations.")
-with c4:
-    st.info("**🏦 Multi-Account Support**\nManage multiple accounts and credit cards in one place.")
-with c5:
-    st.info("**💱 Multi-Currency**\nSupport for multiple currencies with real-time conversion.")
-with c6:
-    st.info("**🤖 Automated Insights**\nGet automated financial insights and recommendations.")
-
-st.markdown("---")
-st.subheader("📈 Financial Insights Dashboard")
-
-# Upload CSV file
-uploaded_file = st.file_uploader("Upload your financial data (CSV)", type=["csv"])
+# -------------------------------
+# FILE UPLOAD
+# -------------------------------
+uploaded_file = st.file_uploader("📂 Upload your Finance CSV file", type=["csv"])
 
 if uploaded_file is not None:
+    # Load and preprocess
     df = pd.read_csv(uploaded_file)
 
-    # Try to handle different date column names
-    date_cols = [c for c in df.columns if 'date' in c.lower()]
-    if date_cols:
-        df[date_cols[0]] = pd.to_datetime(df[date_cols[0]], errors='coerce')
+    # Check column consistency
+    expected_cols = ['Date', 'Account', 'Category', 'Description', 'Amount', 'Currency', 'Type']
+    missing = [col for col in expected_cols if col not in df.columns]
+    if missing:
+        st.error(f"❌ Missing required columns: {missing}")
+        st.stop()
 
-    st.write("### Sample Data", df.head())
+    # Clean and process
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    df = df.dropna(subset=['Date'])
+    df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
+    df = df.dropna(subset=['Amount'])
 
-    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
-    if len(numeric_cols) < 2:
-        st.warning("⚠️ Not enough numeric data to plot charts.")
+    # -------------------------------
+    # SUMMARY INSIGHTS
+    # -------------------------------
+    st.subheader("📊 Quick Financial Insights")
+
+    total_income = df[df['Type'].str.lower() == 'income']['Amount'].sum()
+    total_expense = df[df['Type'].str.lower() == 'expense']['Amount'].sum()
+    savings = total_income - total_expense
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("💵 Total Income", f"₹{total_income:,.0f}")
+    col2.metric("💸 Total Expenses", f"₹{total_expense:,.0f}")
+    col3.metric("💰 Net Savings", f"₹{savings:,.0f}")
+
+    # -------------------------------
+    # AI-LIKE FINANCIAL INSIGHT
+    # -------------------------------
+    top_category = (
+        df[df['Type'].str.lower() == 'expense']
+        .groupby('Category')['Amount'].sum()
+        .sort_values(ascending=False)
+        .head(1)
+    )
+
+    if not top_category.empty:
+        cat_name = top_category.index[0]
+        cat_value = top_category.iloc[0]
+        st.success(f"🤖 *AI Insight:* You spent the most on **{cat_name}** (₹{cat_value:,.0f}). "
+                   f"Consider reducing expenses here for better savings.")
+
+    # -------------------------------
+    # FILTERS
+    # -------------------------------
+    st.subheader("🔍 Filter Data")
+    category_filter = st.multiselect("Select Categories", df['Category'].unique())
+    account_filter = st.multiselect("Select Accounts", df['Account'].unique())
+
+    filtered_df = df.copy()
+    if category_filter:
+        filtered_df = filtered_df[filtered_df['Category'].isin(category_filter)]
+    if account_filter:
+        filtered_df = filtered_df[filtered_df['Account'].isin(account_filter)]
+
+    # -------------------------------
+    # CHARTS
+    # -------------------------------
+    st.subheader("📈 Visual Analysis")
+
+    # Line Chart: Income vs Expenses Over Time
+    line_df = (
+        filtered_df.groupby(['Date', 'Type'])['Amount']
+        .sum()
+        .reset_index()
+        .sort_values('Date')
+    )
+
+    if not line_df.empty:
+        fig_line = px.line(
+            line_df,
+            x='Date',
+            y='Amount',
+            color='Type',
+            title="Income vs Expense Over Time",
+            markers=True
+        )
+        st.plotly_chart(fig_line, use_container_width=True)
     else:
-        col_a, col_b = st.columns(2)
+        st.warning("⚠️ Not enough numeric data to plot the line chart.")
 
-        # Line Chart
-        with col_a:
-            st.markdown("#### 📉 Trend Over Time")
-            x_axis = st.selectbox("Select Date/Time Column", options=df.columns)
-            y_axis = st.selectbox("Select Value Column", options=numeric_cols)
-            line_fig = px.line(df, x=x_axis, y=y_axis, title=f"{y_axis} over {x_axis}")
-            st.plotly_chart(line_fig, use_container_width=True)
+    # Bar Chart: Category-wise Expenses
+    bar_df = (
+        filtered_df[filtered_df['Type'].str.lower() == 'expense']
+        .groupby('Category')['Amount']
+        .sum()
+        .reset_index()
+        .sort_values('Amount', ascending=False)
+    )
+    if not bar_df.empty:
+        fig_bar = px.bar(
+            bar_df,
+            x='Category',
+            y='Amount',
+            title="Category-wise Expenses",
+            color='Amount',
+            text_auto=True
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+    else:
+        st.warning("⚠️ Not enough data for the bar chart.")
 
-        # Bar Chart
-        with col_b:
-            st.markdown("#### 📊 Category Comparison")
-            category_col = st.selectbox("Select Category Column", options=df.columns)
-            value_col = st.selectbox("Select Value Column for Bar Chart", options=numeric_cols)
-            bar_fig = px.bar(df, x=category_col, y=value_col, title=f"{value_col} by {category_col}")
-            st.plotly_chart(bar_fig, use_container_width=True)
+    # Pie Chart: Expense Distribution
+    if not bar_df.empty:
+        fig_pie = px.pie(
+            bar_df,
+            values='Amount',
+            names='Category',
+            title="Expense Distribution by Category",
+            hole=0.4
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-        st.markdown("#### 🥧 Expense Distribution")
-        pie_col = st.selectbox("Select Category for Pie Chart", options=df.columns)
-        pie_val = st.selectbox("Select Value for Pie Chart", options=numeric_cols)
-        pie_fig = px.pie(df, names=pie_col, values=pie_val, title=f"{pie_val} Distribution by {pie_col}")
-        st.plotly_chart(pie_fig, use_container_width=True)
+    # -------------------------------
+    # DATA TABLE
+    # -------------------------------
+    st.subheader("📋 Transaction Details")
+    st.dataframe(filtered_df.sort_values('Date', ascending=False), use_container_width=True)
 
 else:
-    st.info("⬆️ Upload a CSV file to view interactive insights.")
-
-st.markdown("---")
-st.caption("💡 Built with Streamlit & Plotly | AI Finance Platform")
+    st.info("👆 Upload a CSV file to begin financial analysis.")
+    st.caption("Use the sample file named `finance_data.csv` provided earlier.")
