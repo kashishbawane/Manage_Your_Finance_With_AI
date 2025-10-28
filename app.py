@@ -6,6 +6,10 @@ from PIL import Image
 import re
 import os
 
+# 🪟 WINDOWS CONFIGURATION FOR PYTESSERACT
+if os.name == "nt":  # Windows system
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
 # --------------------------------
 # PAGE CONFIG
 # --------------------------------
@@ -55,7 +59,7 @@ st.markdown(
 cols = st.columns(3)
 features = [
     ("📊 Advanced Analytics", "Get detailed insights into your spending patterns with AI-powered analytics."),
-    ("🧾 Smart Receipt Scanner", "Extract data automatically from receipts using advanced AI technology."),
+    ("🧾 Smart Receipt Scanner", "Extract data automatically from receipts using OCR AI technology."),
     ("🪙 Budget Planning", "Create and manage budgets with intelligent recommendations."),
     ("💳 Multi-Account Support", "Manage multiple accounts and credit cards in one place."),
     ("🌍 Multi-Currency", "Support for multiple currencies with real-time conversion."),
@@ -91,37 +95,41 @@ if receipt_img:
     st.image(image, caption="Uploaded Receipt", use_column_width=True)
 
     with st.spinner("🔍 Extracting data using AI..."):
-        text = pytesseract.image_to_string(image)
+        try:
+            text = pytesseract.image_to_string(image)
 
-        # Simple regex-based extraction
-        amount_match = re.search(r'(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', text)
-        date_match = re.search(r'(\d{2}[/-]\d{2}[/-]\d{4})', text)
+            # Simple regex-based extraction
+            amount_match = re.search(r'(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', text)
+            date_match = re.search(r'(\d{2}[/-]\d{2}[/-]\d{4})', text)
 
-        category = "Miscellaneous"
-        if re.search(r'grocery|mart|supermarket', text, re.IGNORECASE):
-            category = "Groceries"
-        elif re.search(r'uber|travel|taxi', text, re.IGNORECASE):
-            category = "Travel"
-        elif re.search(r'food|restaurant|pizza', text, re.IGNORECASE):
-            category = "Food"
-        elif re.search(r'bill|electricity|gas', text, re.IGNORECASE):
-            category = "Utilities"
+            category = "Miscellaneous"
+            if re.search(r'grocery|mart|supermarket', text, re.IGNORECASE):
+                category = "Groceries"
+            elif re.search(r'uber|travel|taxi|train', text, re.IGNORECASE):
+                category = "Travel"
+            elif re.search(r'food|restaurant|pizza|hotel', text, re.IGNORECASE):
+                category = "Food"
+            elif re.search(r'bill|electricity|gas|recharge', text, re.IGNORECASE):
+                category = "Utilities"
 
-        amount = float(amount_match.group(1).replace(',', '')) if amount_match else 0.0
-        date = date_match.group(1) if date_match else pd.Timestamp.now().strftime('%d-%m-%Y')
+            amount = float(amount_match.group(1).replace(',', '')) if amount_match else 0.0
+            date = date_match.group(1) if date_match else pd.Timestamp.now().strftime('%d-%m-%Y')
 
-        new_entry = {
-            'Date': date,
-            'Account': 'Cash',
-            'Category': category,
-            'Description': 'Auto-entry from receipt',
-            'Amount': amount,
-            'Currency': 'INR',
-            'Type': 'Expense'
-        }
+            new_entry = {
+                'Date': date,
+                'Account': 'Cash',
+                'Category': category,
+                'Description': 'Auto-entry from receipt',
+                'Amount': amount,
+                'Currency': 'INR',
+                'Type': 'Expense'
+            }
 
-        df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
-        st.success(f"✅ Extracted Transaction: {category} — ₹{amount:,.2f} on {date}")
+            df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
+            st.success(f"✅ Extracted Transaction: {category} — ₹{amount:,.2f} on {date}")
+
+        except pytesseract.TesseractNotFoundError:
+            st.error("⚠️ Tesseract OCR not found. Please install it from https://github.com/UB-Mannheim/tesseract/wiki")
 
 # --------------------------------
 # ANALYTICS SECTION
