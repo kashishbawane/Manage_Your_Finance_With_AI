@@ -5,31 +5,31 @@ from PIL import Image
 import pytesseract
 import os
 import re
-import io
 
-# 🧠 Optional: Use EasyOCR if Tesseract is missing
+# 🧠 Optional EasyOCR fallback
 try:
     import easyocr
     EASY_OCR_AVAILABLE = True
 except ImportError:
     EASY_OCR_AVAILABLE = False
 
-# 🪟 WINDOWS CONFIGURATION FOR PYTESSERACT
-if os.name == "nt":  # Windows system
+# ⚙️ Configure pytesseract for Windows
+if os.name == "nt":
     pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-# ---------------------- Streamlit App Title ----------------------
-st.set_page_config(page_title="AI Smart Finance Manager", layout="wide")
-st.title("💰 Manage Your Finance with AI")
-st.write("📸 Upload receipts or enter transactions to analyze your spending smartly.")
+# -------------------- Streamlit App Configuration --------------------
+st.set_page_config(page_title="AI Finance Dashboard", layout="wide")
+st.title("💰 Manage Your Finances with AI")
+st.write("📸 Upload receipts or CSV files, and get AI-powered financial insights.")
 
-# ---------------------- Data Upload Section ----------------------
-uploaded_files = st.file_uploader("📤 Upload your receipts or CSV files", accept_multiple_files=True)
+# -------------------- Upload Section --------------------
+uploaded_files = st.file_uploader("📤 Upload receipts (images or CSV)", accept_multiple_files=True)
 
 data = []
 
+# -------------------- OCR Function --------------------
 def extract_text_from_image(image):
-    """Extracts text using Tesseract or EasyOCR fallback."""
+    """Extract text using Tesseract or EasyOCR."""
     text = ""
     try:
         text = pytesseract.image_to_string(image)
@@ -40,30 +40,29 @@ def extract_text_from_image(image):
             result = reader.readtext(image)
             text = " ".join([res[1] for res in result])
         else:
-            st.error("❌ Neither Tesseract nor EasyOCR is available. Please install one.")
+            st.error("❌ OCR not available. Please install Tesseract or EasyOCR.")
     return text
 
-
+# -------------------- Receipt Text Parsing --------------------
 def parse_receipt_text(text):
-    """Extract basic fields like amount, date, and category from the receipt."""
+    """Extracts amount, date, and category from receipt text."""
     amount_pattern = r'Rs\.?\s?(\d+(?:\.\d{1,2})?)'
     date_pattern = r'(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})'
     category_keywords = {
-        "food": ["restaurant", "cafe", "meal", "food"],
-        "travel": ["uber", "ola", "train", "flight", "bus"],
-        "shopping": ["mall", "store", "amazon", "flipkart"],
-        "groceries": ["grocery", "supermarket", "mart"],
-        "entertainment": ["movie", "cinema", "theatre"]
+        "Food": ["restaurant", "cafe", "meal", "food"],
+        "Travel": ["uber", "ola", "train", "flight", "bus"],
+        "Shopping": ["mall", "store", "amazon", "flipkart"],
+        "Groceries": ["grocery", "supermarket", "mart"],
+        "Entertainment": ["movie", "cinema", "theatre"],
     }
 
-    # Extract amount and date
     amount = re.findall(amount_pattern, text)
     date = re.findall(date_pattern, text)
     category = "Other"
 
     for cat, keywords in category_keywords.items():
         if any(word.lower() in text.lower() for word in keywords):
-            category = cat.capitalize()
+            category = cat
             break
 
     return {
@@ -72,7 +71,7 @@ def parse_receipt_text(text):
         "Category": category
     }
 
-# ---------------------- File Processing ----------------------
+# -------------------- File Processing --------------------
 if uploaded_files:
     for file in uploaded_files:
         if file.type.startswith("image/"):
@@ -86,7 +85,7 @@ if uploaded_files:
             df = pd.read_csv(file)
             data.extend(df.to_dict(orient="records"))
 
-# ---------------------- Manual Entry ----------------------
+# -------------------- Manual Entry Section --------------------
 st.subheader("✍️ Add Transaction Manually")
 with st.form("manual_entry"):
     date = st.date_input("Date")
@@ -97,21 +96,37 @@ with st.form("manual_entry"):
         data.append({"Date": str(date), "Category": category, "Amount": amount})
         st.success("✅ Transaction added successfully!")
 
-# ---------------------- Display and Charts ----------------------
+# -------------------- Data Display & Charts --------------------
 if data:
     df = pd.DataFrame(data)
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+
     st.subheader("📊 Transaction Summary")
     st.dataframe(df, use_container_width=True)
 
     # Expense Summary by Category
-    cat_summary = df.groupby("Category")["Amount"].sum().reset_index()
-    fig = px.pie(cat_summary, values="Amount", names="Category", title="💸 Expense Distribution by Category")
-    st.plotly_chart(fig, use_container_width=True)
+    category_summary = df.groupby("Category")["Amount"].sum().reset_index()
 
-    # Expense Trend Over Time
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    time_summary = df.groupby("Date")["Amount"].sum().reset_index()
-    fig2 = px.line(time_summary, x="Date", y="Amount", title="📆 Spending Over Time")
-    st.plotly_chart(fig2, use_container_width=True)
+    # ---- PIE CHART ----
+    st.markdown("### 🍕 Expense Distribution (Pie Chart)")
+    fig_pie = px.pie(category_summary, values="Amount", names="Category",
+                     title="Expense Distribution by Category")
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+    # ---- BAR CHART ----
+    st.markdown("### 📊 Expense Comparison (Bar Chart)")
+    fig_bar = px.bar(category_summary, x="Category", y="Amount",
+                     color="Category", text_auto=True,
+                     title="Total Expense per Category")
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+    # ---- LINE CHART ----
+    st.markdown("### 📈 Expense Trend Over Time (Line Chart)")
+    date_summary = df.groupby("Date")["Amount"].sum().reset_index()
+    fig_line = px.line(date_summary, x="Date", y="Amount",
+                       markers=True, title="Daily Spending Trend")
+    st.plotly_chart(fig_line, use_container_width=True)
+
 else:
-    st.info("📂 Upload receipts or add entries to get started.")
+    st.info("📂 Upload receipts or add entries to visualize your financial data.")
+
